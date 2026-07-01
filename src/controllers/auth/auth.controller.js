@@ -3,6 +3,7 @@ const { v4: uuidv4 } = require("uuid");
 
 const users = require("../../services/auth/user.service");
 const jwt = require("../../services/auth/jwt.service");
+const vpn = require("../../services/vpn/vpn.service");
 
 class AuthController {
 
@@ -40,26 +41,47 @@ class AuthController {
                 uuid: uuidv4()
             });
 
+            const client = await vpn.create(user.id);
+
             const token = jwt.generate(user);
 
             return res.json({
+
                 success: true,
+
                 token,
+
                 user: {
+
                     id: user.id,
                     email: user.email,
                     plan: user.plan,
                     status: user.status
+
+                },
+
+                vpn: {
+
+                    uuid: client.uuid,
+                    shortId: client.short_id,
+                    link: vpn.buildLink(client)
+
                 }
+
             });
 
-        } catch (e) {
+        }
+
+        catch (e) {
 
             console.error(e);
 
             return res.status(500).json({
+
                 success: false,
+
                 message: e.message
+
             });
 
         }
@@ -105,24 +127,45 @@ class AuthController {
 
             const token = jwt.generate(user);
 
+            const client = await vpn.getClient(user.id);
+
             return res.json({
+
                 success: true,
+
                 token,
+
                 user: {
+
                     id: user.id,
                     email: user.email,
                     plan: user.plan,
                     status: user.status
-                }
+
+                },
+
+                vpn: client ? {
+
+                    uuid: client.uuid,
+                    shortId: client.short_id,
+                    link: vpn.buildLink(client)
+
+                } : null
+
             });
 
-        } catch (e) {
+        }
+
+        catch (e) {
 
             console.error(e);
 
             return res.status(500).json({
+
                 success: false,
+
                 message: e.message
+
             });
 
         }
