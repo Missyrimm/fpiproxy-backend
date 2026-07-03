@@ -3,6 +3,10 @@ const app = require("./app");
 
 require("./database/db");
 
+const subscriptionCron = require("./cron/subscription.cron");
+
+subscriptionCron.start();
+
 app.listen(config.app.port, () => {
 
     console.log("");

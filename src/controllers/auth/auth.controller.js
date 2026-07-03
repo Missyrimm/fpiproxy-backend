@@ -1,6 +1,7 @@
 const bcrypt = require("bcrypt");
 const { v4: uuidv4 } = require("uuid");
 
+const subscription = require("../../services/subscription/subscription.service");
 const users = require("../../services/auth/user.service");
 const jwt = require("../../services/auth/jwt.service");
 const vpn = require("../../services/vpn/vpn.service");
@@ -41,7 +42,9 @@ class AuthController {
                 uuid: uuidv4()
             });
 
-            const client = await vpn.create(user.id);
+            // Создаем бесплатную подписку.
+            // VPN пока НЕ создаем.
+            await subscription.createFree(user.id);
 
             const token = jwt.generate(user);
 
@@ -58,14 +61,6 @@ class AuthController {
                     plan: user.plan,
                     status: user.status
 
-                },
-
-                vpn: {
-
-                    uuid: client.uuid,
-                    shortId: client.short_id,
-                    link: vpn.buildLink(client)
-
                 }
 
             });
@@ -79,7 +74,6 @@ class AuthController {
             return res.status(500).json({
 
                 success: false,
-
                 message: e.message
 
             });
@@ -163,7 +157,6 @@ class AuthController {
             return res.status(500).json({
 
                 success: false,
-
                 message: e.message
 
             });

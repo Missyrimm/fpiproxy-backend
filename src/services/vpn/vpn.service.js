@@ -3,22 +3,27 @@ const crypto = require("crypto");
 
 const pool = require("../../database/db");
 const config = require("../../config");
+const serverService = require("../server/server.service");
 
 class VPNService {
 
     generateShortId() {
-
         return crypto.randomBytes(8).toString("hex");
-
     }
 
     async getClient(userId) {
 
         const result = await pool.query(
             `
-            SELECT *
+            SELECT
+                vpn_clients.*,
+                servers.host,
+                servers.port,
+                servers.public_key
             FROM vpn_clients
-            WHERE user_id = $1
+            LEFT JOIN servers
+                ON servers.id = vpn_clients.server_id
+            WHERE vpn_clients.user_id = $1
             LIMIT 1
             `,
             [userId]
@@ -35,8 +40,12 @@ class VPNService {
         if (existing)
             return existing;
 
-        const uuid = uuidv4();
+        const server = await serverService.getDefault();
 
+        if (!server)
+            throw new Error("No VPN server available");
+
+        const uuid = uuidv4();
         const shortId = this.generateShortId();
 
         const result = await pool.query(
@@ -46,18 +55,20 @@ class VPNService {
                 user_id,
                 uuid,
                 short_id,
+                server_id,
                 server_ip,
                 server_port
             )
-            VALUES ($1,$2,$3,$4,$5)
+            VALUES ($1,$2,$3,$4,$5,$6)
             RETURNING *
             `,
             [
                 userId,
                 uuid,
                 shortId,
-                config.server.ip,
-                443
+                server.id,
+                server.host,
+                server.port
             ]
         );
 
@@ -67,7 +78,11 @@ class VPNService {
 
     buildLink(client) {
 
-        return `vless://${client.uuid}@${client.server_ip}:${client.server_port}?type=tcp&security=reality&pbk=${config.xray.publicKey}&fp=chrome&sni=www.cloudflare.com&sid=${client.short_id}&flow=xtls-rprx-vision#FPIPROXY`;
+        const host = client.host || client.server_ip;
+        const port = client.port || client.server_port;
+        const publicKey = client.public_key || config.xray.publicKey;
+
+        return `vless://${client.uuid}@${host}:${port}?type=tcp&security=reality&pbk=${publicKey}&fp=chrome&sni=www.cloudflare.com&sid=${client.short_id}&flow=xtls-rprx-vision#FPIPROXY`;
 
     }
 
